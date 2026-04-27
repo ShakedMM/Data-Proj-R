@@ -1,0 +1,150 @@
+---
+title: "Spotify Data Analysis: Trends & Insights"
+author: "Data Analysis Project"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+# General settings and package loading
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(lubridate)
+library(stringr)
+```
+
+## 1. Introduction
+### 1.1 Background and Motivation
+Music has always been a central part of my life, both as a musician and as a music lover. This personal passion naturally led to a fascination with the data-driven backend of the music industry. With the rise of digital platforms, the field of Data Science has become a crucial tool for understanding listener behavior and industry evolution.
+
+This project was born out of a desire to apply statistical methodologies to a domain I am deeply connected to. Using the Spotify dataset provided by TidyTuesday, I aim to explore how various musical characteristics and historical shifts influence the success and production of music in the modern era.
+
+### 1.2 The Streaming Era
+A significant portion of this analysis focuses on what is known as the "Streaming Era." Beginning in the late 2000s with the launch of services like Spotify (2008) and later Apple Music (2015), this period represents a fundamental shift in how music is consumed. Unlike previous eras defined by physical sales (CDs, Vinyl) or digital downloads, the streaming era is characterized by:
+
+Immediate Accessibility: Instant access to a near-infinite catalog of global music.
+
+Subscription-Based Models: A shift from purchasing individual albums to monthly access.
+
+Algorithmic Influence: The role of data and algorithms in music discovery and playlist curation.
+
+### 1.3 Research Objectives
+The core of this work is divided into four main research questions, each addressing a different facet of the music data:
+
+Predictive Analysis: Evaluating the correlation between a song's "danceability" and its commercial popularity.
+
+Historical Trends: Mapping the evolution of song durations from 1960 to the present day to see how consumption habits affect track length.
+
+Musical Characteristics: Investigating the dominance of musical genres and the influence of musical "modes" (Major vs. Minor scales).
+
+Production Volume: Utilizing Bootstrap Resampling to statistically confirm the growth rate of annual music production across decades.
+
+
+## 2. Data Loading and Initial Processing
+We will load the dataset from TidyTuesday and convert the song durations from milliseconds to seconds.
+
+```{r data-loading}
+#Loading the data
+spotify_songs <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2020/2020-01-21/spotify_songs.csv')
+
+# Initial processing: Converting song length from milliseconds to seconds
+spotify_songs <- spotify_songs %>%
+  mutate(duration_sec = duration_ms / 1000)
+```
+
+## 3. Research Questions
+
+### 3.1 Relationship between Danceability and Popularity
+We will examine whether there is a linear relationship between the Danceability index and the song's popularity.
+
+```{r question-1}
+# Data cleaning and correlation calculation
+d_q1 <- spotify_songs %>%
+  select(danceability, track_popularity) %>%
+  drop_na()
+
+correlation <- cor(d_q1$danceability, d_q1$track_popularity)
+
+# Visualization
+ggplot(d_q1, aes(x = danceability, y = track_popularity)) +
+  geom_point(alpha = 0.2, color = "darkblue") +
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = paste("Correlation between Danceability and Popularity: ", round(correlation, 3)),
+       x = "Danceability Score (0-1)", y = "Track Popularity (0-100)")
+```
+
+### 3.2 Historical Trends in Song Duration
+Analysis of the change in average song length over the years (1960-2020).
+
+```{r question-2}
+# Extracting year and calculating averages
+q2_data <- spotify_songs %>%
+  mutate(year = as.numeric(str_extract(track_album_release_date, "\\d{4}"))) %>%
+  filter(year >= 1960 & year <= 2020) %>%
+  group_by(year) %>%
+  summarise(avg_duration = mean(duration_sec, na.rm = TRUE))
+
+# Trend plot with LOESS smoothing
+ggplot(q2_data, aes(x = year, y = avg_duration)) +
+  geom_line(color = "gray") +
+  geom_smooth(method = "loess", color = "darkgreen") +
+  labs(title = "Average Song Duration Over Years",
+       x = "Year", y = "Average Duration (Seconds)")
+```
+
+### 3.3 Popularity by Genre and Musical Mode
+Is there a difference in popularity between songs in Major vs. Minor scales within different genres?
+
+```{r question-3}
+# Calculating popularity by genre and scale
+q3_data <- spotify_songs %>%
+  group_by(playlist_genre, mode) %>%
+  summarise(avg_pop = mean(track_popularity, na.rm = TRUE),
+            n = n(), .groups = "drop")
+
+ggplot(q3_data, aes(x = playlist_genre, y = avg_pop, fill = factor(mode))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(values = c("0" = "salmon", "1" = "skyblue"), labels = c("Minor", "Major")) +
+  labs(title = "Genre Popularity by Musical Mode",
+       fill = "Mode", x = "Genre", y = "Average Popularity")
+```
+
+### 3.4 Rate of Music Production (Bootstrap Analysis)
+We will use the Bootstrap method to examine the average number of songs released annually across different decades.
+
+```{r question-4}
+# Preparing data for periods
+songs_per_year <- spotify_songs %>%
+  mutate(year = as.numeric(str_extract(track_album_release_date, "\\d{4}"))) %>%
+  count(year) %>%
+  filter(!is.na(year)) %>%
+  mutate(period = case_when(
+    year <= 1980 ~ "1960-1980",
+    year <= 2000 ~ "1981-2000",
+    TRUE ~ "2001-2020"
+  ))
+
+# Bootstrap function
+boot_fun <- function(data) {
+  resample <- data[sample(nrow(data), replace = TRUE), ]
+  return(mean(resample$n))
+}
+
+# Running simulations
+set.seed(123)
+boot_results <- songs_per_year %>%
+  group_by(period) %>%
+  do(data.frame(mean_songs = replicate(1000, boot_fun(.))))
+
+# Visualization of the distribution of means
+ggplot(boot_results, aes(x = mean_songs, fill = period)) +
+  geom_histogram(alpha = 0.6, bins = 30) +
+  facet_wrap(~period, scales = "free") +
+  labs(title = "Bootstrap Distribution of Yearly Music Production",
+       x = "Mean Songs per Year", y = "Frequency")
+```
