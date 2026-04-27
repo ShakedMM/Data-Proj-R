@@ -35,10 +35,7 @@ This project provides a comprehensive statistical exploration of musical attribu
 * **Key Packages:** `tidyverse` (ggplot2, dplyr, tidyr), `stringr`, `lubridate`
 * **Statistical Methods:** Pearson Correlation, Bootstrap Resampling, Confidence Interval Estimation (95%), and LOESS Smoothing.
 
----
 
-## Visualizations
-*(Optional: Add your plot images here to make the project stand out)*
 
 > **Note:** To display your graphs, upload the image files to your repository and use the following syntax:
 > `![Alt text](path_to_your_image.png)`
