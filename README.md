@@ -37,5 +37,4 @@ This project provides a comprehensive statistical exploration of musical attribu
 
 
 
-> **Note:** To display your graphs, upload the image files to your repository and use the following syntax:
-> `![Alt text](path_to_your_image.png)`
+
